@@ -18,7 +18,7 @@ OPTIONS can be:
     -k      SSH key name (default $KEY_NAME)
     -r      AMI region (default $AMI_REGION)
     -s      Security group (default $SECURITY_GROUP)
-    -u      User data/script
+    -n      Run name (required when submitting a script)
     -o      Output JSON file
     -d      Dry run
 EOF
@@ -31,7 +31,6 @@ EOF
 #fi
 
 TYPE="t2.micro"
-USER_DATA=
 JSON_OUT=
 DRYRUN=0
 NAME=
@@ -59,9 +58,6 @@ do
             ;;
         s)
             SECURITY_GROUP=$OPTARG
-            ;;
-        u)
-            USER_DATA=$OPTARG
             ;;
         o)
             JSON_OUT=$OPTARG
@@ -113,6 +109,14 @@ fi
 
 if [ "$#" -gt "0" ]
 then
+
+    if [ -z "$NAME" ]
+    then
+        echo "No name given."
+        usage
+        exit
+    fi
+
     SCRIPT=$1
     ARGS=${@:2}
 
@@ -123,7 +127,7 @@ then
     fi
 
     FILE_NAME=launch.$RANDOM.sh
-    $THIS_PATH/wrap_cmd.sh $SCRIPT $ARGS > $FILE_NAME
+    $THIS_PATH/wrap_cmd.sh $NAME $SCRIPT $ARGS > $FILE_NAME
     CMD+="\
     --user-data file://$FILE_NAME"
 fi

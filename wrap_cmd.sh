@@ -1,25 +1,36 @@
 #!/bin/bash
 
+NAME=$1
+SCRIPT=$2
+
 source $HOME/.ssec2
 
-echo '#!/bin/bash
+echo "#!/bin/bash
 ERR()
 {
     set +e
 
-    LOG_TEST=`declare -f LOG | wc -l`
+    AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+    AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
+    aws s3 cp --region us-west-1 \
+    $NAME.\$EC2_INSTANCE_ID.out s3://$DATA_BUCKET
 
-    if [ "$LOG_TEST" -ne "0" ]
-    then
-        LOG
-    fi
-    
+    AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+    AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
+    aws s3 cp --region us-west-1 \
+    $NAME.\$EC2_INSTANCE_ID.err s3://$DATA_BUCKET
+
+
     shutdown -h now
 }
 
 trap ERR EXIT
+"
 
+echo '
+EC2_INSTANCE_ID="`wget -q -O - http://instance-data/latest/meta-data/instance-id || die \"wget instance-id has failed: $?\"`"
 '
+
 echo "
 cd $AMI_WORKING_DIR
 
@@ -29,8 +40,9 @@ SSEC2_F()
 {
 "
 
-cat $1
+cat $SCRIPT
 
 echo "}
 
-SSEC2_F ${@:2}"
+SSEC2_F ${@:3} > $NAME.\$EC2_INSTANCE_ID.out 2> $NAME.\$EC2_INSTANCE_ID.err"
+
