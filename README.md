@@ -1,3 +1,8 @@
+https://aws.amazon.com/cli/
+
+https://stedolan.github.io/jq/
+
+
 
 `$HOME/.ssec2`
 
