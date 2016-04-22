@@ -20,6 +20,7 @@ usage: $0 OPTIONS
 
 OPTIONS can be:
     -h      Show this message
+    -l      Get full listing
     -i      Instance ID
     -k      SSH key path (default $KEY_PATH)
     -r      Region (default $AMI_REGION)
@@ -34,9 +35,10 @@ TIME=10
 TERM_I=0
 STOP_I=0
 INSTANCE=
+LIST=0
 
 # Check options passed in.
-while getopts "h i:k:r:u:tsT:" OPTION
+while getopts "h i:k:r:u:tsT:l" OPTION
 do
     case $OPTION in
         h)
@@ -60,6 +62,9 @@ do
             ;;
         s)
             STOP_I=1
+            ;;
+        l)
+            LIST=1
             ;;
         T)
             TIME=$OPTARG
@@ -92,9 +97,8 @@ then
 
     rm $O
     $CMD 
-else
-    #INSTANCES=`cat $O | jq -r .Reservations[].Instances[].InstanceId`
-
+elif [ "$LIST" -eq "1" ]
+then
     THEN=
     NOW=
     
@@ -115,18 +119,31 @@ else
         IFS=',' read -r -a INSTANCE_STATE <<< "$INSTANCE_STATE_STR"
         printf "%-11s %-25s %-15s %-15s " "${INSTANCE_STATE[0]}" "${INSTANCE_STATE[1]}" "${INSTANCE_STATE[2]}" "${INSTANCE_STATE[4]}"
 
-        INSTANCE="${INSTANCE_STATE[0]}"
-        CPU=`aws cloudwatch get-metric-statistics \
-            --namespace "AWS/EC2" \
-            --metric-name CPUUtilization \
-            --region $AMI_REGION \
-            --dimensions Name=InstanceId,Value=$INSTANCE \
-            --start-time $THEN \
-            --end-time $NOW \
-            --statistics Average \
-            --period 60  | jq '.Datapoints[].Average' \
-            | awk '{x+=$0;y+=$0^2}END{if (NR>0) print x/NR}'`
+        CPU="."
+        if [ "${INSTANCE_STATE[2]}" == "running" ]
+        then
+            INSTANCE="${INSTANCE_STATE[0]}"
+            CPU=`aws cloudwatch get-metric-statistics \
+                --namespace "AWS/EC2" \
+                --metric-name CPUUtilization \
+                --region $AMI_REGION \
+                --dimensions Name=InstanceId,Value=$INSTANCE \
+                --start-time $THEN \
+                --end-time $NOW \
+                --statistics Average \
+                --period 60  | jq '.Datapoints[].Average' \
+                | awk '{x+=$0;y+=$0^2}END{if (NR>0) print x/NR}'`
+        fi
 
         printf "%-15s\n" "$CPU"
     done
+else 
+    printf "%s\t%s\n" "$AMI_REGION" "$(date)"
+    printf "Running "
+    JR_Q=".Reservations[].Instances[] | select(.State.Name == \"running\") | .InstanceId "
+    printf "%s\n" "$(cat $O | jq -r "$JR_Q" | wc -l)"
+
+    printf "Pending "
+    JR_Q=".Reservations[].Instances[] | select(.State.Name == \"pending\") | .InstanceId "
+    printf "%s\n" "$(cat $O | jq -r "$JR_Q" | wc -l)"
 fi
