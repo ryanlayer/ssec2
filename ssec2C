@@ -92,7 +92,7 @@ then
     else
         CMD=`cat $O \
             | jq ".Reservations[].Instances[] | select(.InstanceId == \"$INSTANCE\")" \
-            | jq -r "\"ssh -i $KEY_PATH/\" + .KeyName + \".pem $AMI_USER_NAME@\" + .PublicDnsName"`
+            | jq -r "\"ssh -o StrictHostKeyChecking=no -i $KEY_PATH/\" + .KeyName + \".pem $AMI_USER_NAME@\" + .PublicDnsName"`
     fi
 
     rm $O
