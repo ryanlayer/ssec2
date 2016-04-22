@@ -2,7 +2,6 @@
 
 ERR()
 {
-    echo $O
     rm -f $O
 }
 
@@ -96,8 +95,18 @@ then
 else
     #INSTANCES=`cat $O | jq -r .Reservations[].Instances[].InstanceId`
 
-    THEN=$(date -u -r $((`date -u +%s`-$TIME*60)) "+%Y-%m-%dT%H:%M:%SU")
-    NOW=$(date -u -r $(date -u +%s) "+%Y-%m-%dT%H:%M:%SU")
+    THEN=
+    NOW=
+    
+    if [ "`uname`" == "Linux" ]
+    then
+        THEN=$(date -u --date "-$TIME minutes" "+%Y-%m-%dT%H:%M:%SU")
+        NOW=$(date -u "+%Y-%m-%dT%H:%M:%SU")
+    else
+        THEN=$(date -u -r $((`date -u +%s`-$TIME*60)) "+%Y-%m-%dT%H:%M:%SU")
+        NOW=$(date -u -r $(date -u +%s) "+%Y-%m-%dT%H:%M:%SU")
+    fi
+
 
     JR_Q=".Reservations[].Instances[] | select(.State.Name != \"terminated\") | .InstanceId + \",\" + .LaunchTime + \",\" + .State.Name + \",\" + .PublicDnsName + \",\" + .InstanceType"
     printf "%-11s %-25s %-15s %-15s %-15s\n" "ID" "Launch Time" "State" "Type" "CPU"
