@@ -1,0 +1,45 @@
+#!/bin/bash
+
+THIS_PATH="`dirname \"$0\"`"
+THIS_PATH="`( cd \"$THIS_PATH\" && pwd )`" 
+
+usage()
+{
+    cat << EOF
+
+usage: $0 SUBCOMMAND OPTIONS
+
+    launch      Launch a new instance
+    connect     Conntect to instances
+EOF
+}
+
+# Check options passed in.
+while getopts "h" OPTION
+do
+    case $OPTION in
+        h)
+            usage
+            exit 1
+            ;;
+        ?)
+            usage
+            exit
+            ;;
+    esac
+done
+
+if [ "$#" -eq "0" ]
+then
+    $THIS_PATH/ssec2C
+elif [ $1 == "connect" ]
+then
+    $THIS_PATH/ssec2C ${@:2}
+elif [ $1 == "launch" ]
+then
+    $THIS_PATH/ssec2L ${@:2}
+else
+    echo "Unknown subcommand"
+    usage
+    exit
+fi

@@ -1,0 +1,123 @@
+#!/bin/bash
+
+ERR()
+{
+    echo $O
+    rm -f $O
+}
+
+trap ERR EXIT
+
+source $HOME/.ssec2
+
+THIS_PATH="`dirname \"$0\"`"
+THIS_PATH="`( cd \"$THIS_PATH\" && pwd )`" 
+
+usage()
+{
+    cat << EOF
+
+usage: $0 OPTIONS
+
+OPTIONS can be:
+    -h      Show this message
+    -i      Instance ID
+    -k      SSH key path (default $KEY_PATH)
+    -r      Region (default $AMI_REGION)
+    -u      User name (default $AMI_USER_NAME)
+    -t      Terminate instance
+    -s      Stop instance
+    -T      Time frame for instance metrics (default 10min)
+EOF
+}
+
+TIME=10
+TERM_I=0
+STOP_I=0
+INSTANCE=
+
+# Check options passed in.
+while getopts "h i:k:r:u:tsT:" OPTION
+do
+    case $OPTION in
+        h)
+            usage
+            exit 1
+            ;;
+        i)
+            INSTANCE=$OPTARG
+            ;;
+        k)
+            KEY_LOCATION=$OPTARG
+            ;;
+        r)
+            AMI_REGION=$OPTARG
+            ;;
+        u)
+            AMI_USER_NAME=$OPTARG
+            ;;
+        t)
+            TERM_I=1
+            ;;
+        s)
+            STOP_I=1
+            ;;
+        T)
+            TIME=$OPTARG
+            ;;
+        ?)
+            usage
+            exit
+            ;;
+    esac
+done
+
+O=ssec2C.$RANDOM.out
+aws ec2 describe-instances --region $AMI_REGION > $O
+
+if [ ! -z "$INSTANCE" ]
+then
+    CMD=""
+
+    if [ "$TERM_I" -eq "1" ]
+    then
+        CMD="aws ec2 terminate-instances --instance-ids $INSTANCE --region $AMI_REGION"
+    elif [ "$STOP_I" -eq "1" ]
+    then
+        CMD="aws ec2 stop-instances --instance-ids $INSTANCE --region $AMI_REGION"
+    else
+        CMD=`cat $O \
+            | jq ".Reservations[].Instances[] | select(.InstanceId == \"$INSTANCE\")" \
+            | jq -r "\"ssh -i $KEY_PATH/\" + .KeyName + \".pem $AMI_USER_NAME@\" + .PublicDnsName"`
+    fi
+
+    rm $O
+    $CMD 
+else
+    #INSTANCES=`cat $O | jq -r .Reservations[].Instances[].InstanceId`
+
+    THEN=$(date -u -r $((`date -u +%s`-$TIME*60)) "+%Y-%m-%dT%H:%M:%SU")
+    NOW=$(date -u -r $(date -u +%s) "+%Y-%m-%dT%H:%M:%SU")
+
+    JR_Q=".Reservations[].Instances[] | select(.State.Name != \"terminated\") | .InstanceId + \",\" + .LaunchTime + \",\" + .State.Name + \",\" + .PublicDnsName + \",\" + .InstanceType"
+    printf "%-11s %-25s %-15s %-15s %-15s\n" "ID" "Launch Time" "State" "Type" "CPU"
+    for INSTANCE_STATE_STR in `cat $O | jq -r "$JR_Q"`
+    do
+        IFS=',' read -r -a INSTANCE_STATE <<< "$INSTANCE_STATE_STR"
+        printf "%-11s %-25s %-15s %-15s " "${INSTANCE_STATE[0]}" "${INSTANCE_STATE[1]}" "${INSTANCE_STATE[2]}" "${INSTANCE_STATE[4]}"
+
+        INSTANCE="${INSTANCE_STATE[0]}"
+        CPU=`aws cloudwatch get-metric-statistics \
+            --namespace "AWS/EC2" \
+            --metric-name CPUUtilization \
+            --region $AMI_REGION \
+            --dimensions Name=InstanceId,Value=$INSTANCE \
+            --start-time $THEN \
+            --end-time $NOW \
+            --statistics Average \
+            --period 60  | jq '.Datapoints[].Average' \
+            | awk '{x+=$0;y+=$0^2}END{if (NR>0) print x/NR}'`
+
+        printf "%-15s\n" "$CPU"
+    done
+fi
