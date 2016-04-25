@@ -1,14 +1,20 @@
 
 ## Dependencies
 
+### Software
 https://aws.amazon.com/cli/
 
 https://stedolan.github.io/jq/
 
+### AWS
+You will need:
+* an [s3 bucket](http://docs.aws.amazon.com/AmazonS3/latest/gsg/CreatingABucket.html)
+* an [ec2 key pair](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html)
+* a [security group](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-network-security.html) with a rule that AT LEAST allows in ssh (I allow only ssh in and all out)
 
 ## Setup
 
-Set the followin values in `$HOME/.ssec2`
+Set the following values in `$HOME/.ssec2`
 
 ```
 DATA_STORE_KEY_ID=
@@ -88,7 +94,7 @@ i-a55be038  2016-04-22T21:26:38.000Z  shutting-down   t2.micro        .
 
 ### Have an instance run a script then terminate
 
-Launch an instance that runs a srcipt, in this case `prime.sh`:
+Launch an instance that runs a script, in this case `prime.sh`:
 
 ```
 source $HOME/.ssec2
