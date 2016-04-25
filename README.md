@@ -1,18 +1,24 @@
 
-## Dependencies
+Amazon's elastic cloud compute(EC2) provides on-demand and reasonably priced
+general purpose computing resources.  However, it can be a pain to use.  Stupid
+Simple Elastic Cloud Compute was written as a minimal wrapper around EC2 so
+that it mimics a typical compute cluster where users can either log into nodes
+directly, or simply submit work (in the form of a bash script) to be completed.
 
-### Software
+# Dependencies
+
+## Software
 https://aws.amazon.com/cli/
 
 https://stedolan.github.io/jq/
 
-### AWS
+## AWS
 You will need:
 * an [s3 bucket](http://docs.aws.amazon.com/AmazonS3/latest/gsg/CreatingABucket.html)
 * an [ec2 key pair](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html)
 * a [security group](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-network-security.html) with a rule that AT LEAST allows in ssh (I allow only ssh in and all out)
 
-## Setup
+# Setup
 
 Set the following values in `$HOME/.ssec2`
 
@@ -23,7 +29,7 @@ DATA_REGION=
 DATA_BUCKET=
 KEY_NAME=
 KEY_PATH=
-KEY_LOCATION=
+KEY_LOCATION=$KEY_PATH/$KEY_NAME.pem
 AMI=
 AMI_REGION=
 AMI_USER_NAME=
@@ -32,38 +38,27 @@ SECURITY_GROUP=
 LOG_FILE=$HOME/.ssec2_history
 ```
 
-## Examples
-
-### Get the current status
+For example:
 
 ```
-$ ssec2
-
-us-east-1   Fri Apr 22 15:27:05 MDT 2016
-Running        0
-Pending        1
+DATA_STORE_KEY_ID=YOURKEYIDHEREISISLONGANDALLCAPS
+DATA_STORE_ACCESS_KEY=YourKeyHereItIsLongerAndAMixOfLettersAndNumbers
+DATA_REGION=us-east-1
+DATA_BUCKET=ssec2
+KEY_NAME=ssec2_key
+KEY_PATH=~/.ssh
+KEY_LOCATION=$KEY_PATH/$KEY_NAME.pem
+AMI_REGION=us-east-1
+AMI=ami-fce3c696
+AMI_REGION=us-east-1
+AMI_USER_NAME=ubuntu
+AMI_WORKING_DIR=/home/ubuntu
+SECURITY_GROUP=ssh_in_all_out
+LOG_FILE=$HOME/.ssec2_history
 ```
+# Examples
 
-or
-
-```
-$ ssec2 connect
-
-us-east-1   Fri Apr 22 15:27:30 MDT 2016
-Running        1
-Pending        0
-```
-
-The `-l` option gives per instance information, but is slow
-
-```
-$ ssec2 connect -l
-
-ID          Launch Time               State           Type            CPU
-i-a55be038  2016-04-22T21:26:38.000Z  running         t2.micro        3.915
-```
-
-### Launch an instance, get the info, connect, then terminate
+## Launch an instance, get the info, connect, then terminate
 
 Spin up a new instance 
 ```
@@ -90,6 +85,36 @@ $ ssec2 connect -i i-a55be038 -t
 $ ssec2 connect -l
 ID          Launch Time               State           Type            CPU
 i-a55be038  2016-04-22T21:26:38.000Z  shutting-down   t2.micro        .
+```
+
+## Get the current status
+
+When nothing is given to `ssec2` a summary of the current status is given
+```
+$ ssec2
+
+us-east-1   Fri Apr 22 15:27:05 MDT 2016
+Running        0
+Pending        1
+```
+
+or
+
+```
+$ ssec2 connect
+
+us-east-1   Fri Apr 22 15:27:30 MDT 2016
+Running        1
+Pending        0
+```
+
+The `-l` option gives per instance information, but is slow
+
+```
+$ ssec2 connect -l
+
+ID          Launch Time               State           Type            CPU
+i-a55be038  2016-04-22T21:26:38.000Z  running         t2.micro        3.915
 ```
 
 ### Have an instance run a script then terminate
