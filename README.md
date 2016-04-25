@@ -23,7 +23,7 @@ AMI_REGION=
 AMI_USER_NAME=
 AMI_WORKING_DIR=
 SECURITY_GROUP=
-LOG_FILE=
+LOG_FILE=$HOME/.ssec2_history
 ```
 
 ## Examples
@@ -88,29 +88,25 @@ i-a55be038  2016-04-22T21:26:38.000Z  shutting-down   t2.micro        .
 
 ### Have an instance run a script then terminate
 
-Launch an instance that runs a srcipt, in this case `test.sh`:
+Launch an instance that runs a srcipt, in this case `prime.sh`:
 
 ```
 source $HOME/.ssec2
 
 $ ssec2 launch \
-    -n test \
-    test.sh \
-    $HOSTNAME \
-    $USER \
-    $DATA_STORE_KEY_ID \
-    $DATA_STORE_ACCESS_KEY \
-    $DATA_REGION \
-    $DATA_BUCKET
+    -n find_primes_to_1000 \
+    prime.sh \
+    1000
 ```
 
-`-n test` is the name given to this run, which is required
+`-n ` is the name given to this run, which is required
 
-`test.sh` is the script that will run (as root in `$AMI_WORKING_DIR`)
+`prime.sh` is the script that will run (as root in `$AMI_WORKING_DIR`)
 
-The rest of the options are passed directly to `test.sh` as command line
-arguments which `test.sh` is ready to accept.
+The rest of the options are passed directly to `prime.sh` as command line
+arguments which `prime.sh` is ready to accept.
 
 Every instance launched with a script will also retain the output from STDERR
-and STDOUT and store thme to `s3://$DATA_BUCKET/test.instance_id.err` and
-`s3://$DATA_BUCKET/test.instance_id.out`.
+and STDOUT and store thme to
+`s3://$DATA_BUCKET/find_primes_to_1000.instance_id.err` and
+`s3://$DATA_BUCKET/find_primes_to_1000.instance_id.out`.
