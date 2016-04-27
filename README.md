@@ -5,6 +5,57 @@ Simple Elastic Cloud Compute was written as a minimal wrapper around EC2 so
 that it mimics a typical compute cluster where users can either log into nodes
 directly, or simply submit work (in the form of a bash script) to be completed.
 
+# Usage
+
+There are two cattegories of commands, launch and connect.
+
+```
+$ ssec2 -h
+
+usage: ssec2 SUBCOMMAND OPTIONS
+
+    launch      Launch a new instance
+    connect     Conntect to instances
+```
+
+`launch` spins up instances that you can send work to (bash script) or log into
+
+```
+$ ssec2 launch -h
+
+usage: ssec2L OPTIONS <script> <arg 1> <arg 2> <...>
+
+OPTIONS can be:
+    -h      Show this message
+    -i      Image id (default Ubuntu Server:ami-83687be9)
+    -t      Type (default t2.micro)
+    -k      SSH key name (default lumpy_conf_test)
+    -r      AMI region (default us-east-1)
+    -s      Security group (default ssh_in_all_out)
+    -n      Run name (required when submitting a script)
+    -o      Output JSON file
+    -d      Dry runkk
+```
+
+`connect` gives basic monitoring and control capabilties
+
+```
+$ ssec2 connect -h
+
+usage: /Users/rl6sf/bin/ssec2C OPTIONS
+
+OPTIONS can be:
+    -h      Show this message
+    -l      Get full listing
+    -i      Instance ID
+    -k      SSH key path (default /Users/rl6sf/.aws)
+    -r      Region (default us-east-1)
+    -u      User name (default ubuntu)
+    -t      Terminate instance
+    -s      Stop instance
+    -T      Time frame for instance metrics (default 10min)
+```
+
 # Dependencies
 
 ## Software
@@ -119,12 +170,13 @@ i-a55be038  2016-04-22T21:26:38.000Z  running         t2.micro        3.915
 
 ### Have an instance run a script then terminate
 
-Launch an instance that runs a script, in this case `prime.sh`:
+Launch an instance that runs a sctip (in this case `prime.sh`)  on a `m3.medium` instance script:
 
 ```
 source $HOME/.ssec2
 
 $ ssec2 launch \
+    -t m3.medium \
     -n find_primes_to_1000 \
     prime.sh \
     1000
