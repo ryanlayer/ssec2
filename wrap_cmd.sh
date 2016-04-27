@@ -7,6 +7,15 @@ SCRIPT=$2
 source $HOME/.ssec2
 
 echo "#!/bin/bash
+
+if [ -z \$(which aws) ]
+then
+    wget https://bootstrap.pypa.io/get-pip.py
+    python get-pip.py
+    pip install awscli
+fi
+
+
 ERR()
 {
     set +e
