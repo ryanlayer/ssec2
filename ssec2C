@@ -27,20 +27,21 @@ OPTIONS can be:
     -u      User name (default $AMI_USER_NAME)
     -f      Local file to secure copy up
     -t      Terminate instance
+    -T      Terminate all instances
     -s      Stop instance
-    -T      Time frame for instance metrics (default 10min)
 EOF
 }
 
 TIME=10
 TERM_I=0
+TERM_ALL=0
 STOP_I=0
 INSTANCE=
 LIST=0
 LOCAL_FILE=
 
 # Check options passed in.
-while getopts "h i:k:r:u:tsT:lf:" OPTION
+while getopts "h i:k:r:u:tsTlf:" OPTION
 do
     case $OPTION in
         h)
@@ -72,7 +73,7 @@ do
             LIST=1
             ;;
         T)
-            TIME=$OPTARG
+            TERM_ALL=1
             ;;
         ?)
             usage
@@ -84,7 +85,12 @@ done
 O=ssec2C.$RANDOM.out
 aws ec2 describe-instances --region $AMI_REGION > $O
 
-if [ ! -z "$INSTANCE" ]
+if [ "$TERM_ALL" -eq "1" ]
+then
+    INSTANCES=`cat $O | jq -r ".Reservations[].Instances[] | select(.State.Name == \"running\") | .InstanceId" | tr '\n' ' '`
+    CMD="aws ec2 terminate-instances --instance-ids $INSTANCES --region $AMI_REGION"
+    $CMD 
+elif [ ! -z "$INSTANCE" ]
 then
     CMD=""
 
