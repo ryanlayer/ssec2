@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o nounset
 
 NAME=$1
 SCRIPT=$2
