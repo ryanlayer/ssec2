@@ -25,6 +25,7 @@ OPTIONS can be:
     -k      SSH key path (default $KEY_PATH)
     -r      Region (default $AMI_REGION)
     -u      User name (default $AMI_USER_NAME)
+    -f      Local file to secure copy up
     -t      Terminate instance
     -s      Stop instance
     -T      Time frame for instance metrics (default 10min)
@@ -36,9 +37,10 @@ TERM_I=0
 STOP_I=0
 INSTANCE=
 LIST=0
+LOCAL_FILE=
 
 # Check options passed in.
-while getopts "h i:k:r:u:tsT:l" OPTION
+while getopts "h i:k:r:u:tsT:lf:" OPTION
 do
     case $OPTION in
         h)
@@ -56,6 +58,9 @@ do
             ;;
         u)
             AMI_USER_NAME=$OPTARG
+            ;;
+        f)
+            LOCAL_FILE=$OPTARG
             ;;
         t)
             TERM_I=1
@@ -89,6 +94,11 @@ then
     elif [ "$STOP_I" -eq "1" ]
     then
         CMD="aws ec2 stop-instances --instance-ids $INSTANCE --region $AMI_REGION"
+    elif [ ! -z "$LOCAL_FILE" ]
+    then
+        CMD=`cat $O \
+            | jq ".Reservations[].Instances[] | select(.InstanceId == \"$INSTANCE\")" \
+            | jq -r "\"scp -o StrictHostKeyChecking=no -i $KEY_PATH/\" + .KeyName + \".pem $LOCAL_FILE $AMI_USER_NAME@\" + .PublicDnsName + \":.\""`
     else
         CMD=`cat $O \
             | jq ".Reservations[].Instances[] | select(.InstanceId == \"$INSTANCE\")" \
@@ -97,6 +107,7 @@ then
 
     rm $O
     $CMD 
+
 elif [ "$LIST" -eq "1" ]
 then
     THEN=
