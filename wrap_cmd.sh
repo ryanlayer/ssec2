@@ -22,12 +22,12 @@ ERR()
     AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
     AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
     aws s3 cp --region us-west-1 \
-    $NAME.\$EC2_INSTANCE_ID.out s3://$DATA_BUCKET
+    $NAME.\$EC2_INSTANCE_ID.out s3://$DATA_BUCKET/logs/
 
     AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
     AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
     aws s3 cp --region us-west-1 \
-    $NAME.\$EC2_INSTANCE_ID.err s3://$DATA_BUCKET
+    $NAME.\$EC2_INSTANCE_ID.err s3://$DATA_BUCKET/logs/
 
 
     shutdown -h now
