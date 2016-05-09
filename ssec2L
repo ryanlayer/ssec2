@@ -138,15 +138,17 @@ $CMD > $O
 date >> $LOG_FILE
 echo $CMD >> $LOG_FILE
 cat $O | jq -r .Instances[0].InstanceId >> $LOG_FILE
+cat $O | jq -r .Instances[0].InstanceId
 
 aws ec2 monitor-instances --region $AMI_REGION \
-    --instance-ids `cat $O | jq -r .Instances[0].InstanceId`
+    --instance-ids `cat $O | jq -r .Instances[0].InstanceId` \
+| jq -r "\"Monitoring state: \" + .InstanceMonitorings[].Monitoring.State"
 
 if [ ! -z "$NAME" ]
 then
 aws ec2 create-tags \
     --resources `cat $O  | jq -r .Instances[0].InstanceId` \
-    --tags Key=Name,Value=$NAME --region $AMI_REGION
+    --tags Key=Name,Value=$NAME --region $AMI_REGION 
 fi
 
 rm $O
