@@ -20,6 +20,7 @@ OPTIONS can be:
     -s      Security group (default $SECURITY_GROUP)
     -n      Run name (required when submitting a script)
     -o      Output JSON file
+    -b      Bid price for a spot instance (e.g., 0.01)
     -d      Dry run
 EOF
 }
@@ -35,9 +36,10 @@ JSON_OUT=
 DRYRUN=0
 NAME=
 FILE_NAME=
+BID=
 
 # Check options passed in.
-while getopts "h i:t:k:r:s:u:o:n:d" OPTION
+while getopts "h i:t:k:r:s:u:o:n:db:" OPTION
 do
     case $OPTION in
         h)
@@ -68,6 +70,9 @@ do
         d)
             DRYRUN=1
             ;;
+        b)
+            BID=$OPTARG
+            ;;
         ?)
             usage
             exit
@@ -92,14 +97,71 @@ then
     exit
 fi
 
-CMD="aws ec2 run-instances \
-    --image-id $AMI \
-    --key-name $KEY_NAME  \
-    --instance-type $TYPE \
-    --region $AMI_REGION \
-    --security-groups $SECURITY_GROUP \
-    --instance-initiated-shutdown-behavior terminate \
-"
+if [ -z "$BID" ]
+then
+    CMD="aws ec2 run-instances \
+        --image-id $AMI \
+        --key-name $KEY_NAME  \
+        --instance-type $TYPE \
+        --region $AMI_REGION \
+        --security-groups $SECURITY_GROUP \
+        --instance-initiated-shutdown-behavior terminate \
+    "
+    if [ "$#" -gt "0" ]
+    then
+        if [ -z "$NAME" ]
+        then
+            echo "No name given."
+            usage
+            exit
+        fi
+
+        SCRIPT=$1
+        ARGS=${@:2}
+
+        if [ ! -e $SCRIPT ]
+        then
+            echo "File $SCRIPT does not exist"
+            exit
+        fi
+
+        FILE_NAME=launch.$RANDOM.sh
+        $THIS_PATH/wrap_cmd.sh $NAME $SCRIPT $ARGS > $FILE_NAME
+        CMD+="\
+        --user-data file://$FILE_NAME"
+    fi
+else
+    CMD="aws ec2 request-spot-instances \
+        --spot-price $BID \
+        --instance-count 1 \
+        --region $AMI_REGION \
+        --launch-specification \
+            \"{ \\\"ImageId\\\":\\\"$AMI\\\", \
+                \\\"InstanceType\\\":\\\"$TYPE\\\", \
+                \\\"KeyName\\\":\\\"$KEY_NAME\\\", \
+                \\\"SecurityGroups\\\": [\\\"$SECURITY_GROUP\\\"], \
+                \\\"Monitoring\\\": { \\\"Enabled\\\": true }"
+    if [ "$#" -gt "0" ]
+    then
+
+        SCRIPT=$1
+        ARGS=${@:2}
+
+        if [ ! -e $SCRIPT ]
+        then
+            echo "File $SCRIPT does not exist"
+            exit
+        fi
+
+        FILE_NAME=launch.$RANDOM.sh
+        $THIS_PATH/wrap_cmd.sh $NAME $SCRIPT $ARGS > $FILE_NAME
+
+        CMD+=",\
+                \\\"UserData\\\":\\\"`base64 $FILE_NAME`\\\""
+    fi
+    CMD+="}\""
+    echo $CMD
+fi
 
 if [ "$DRYRUN" -eq "1" ]
 then
@@ -107,48 +169,27 @@ then
     --dry-run"
 fi
 
-if [ "$#" -gt "0" ]
-then
-
-    if [ -z "$NAME" ]
-    then
-        echo "No name given."
-        usage
-        exit
-    fi
-
-    SCRIPT=$1
-    ARGS=${@:2}
-
-    if [ ! -e $SCRIPT ]
-    then
-        echo "File $SCRIPT does not exist"
-        exit
-    fi
-
-    FILE_NAME=launch.$RANDOM.sh
-    $THIS_PATH/wrap_cmd.sh $NAME $SCRIPT $ARGS > $FILE_NAME
-    CMD+="\
-    --user-data file://$FILE_NAME"
-fi
-
 O=ec2_launch.$RANDOM.json
-$CMD > $O
+eval $CMD > $O
 
 date >> $LOG_FILE
 echo $CMD >> $LOG_FILE
-cat $O | jq -r .Instances[0].InstanceId >> $LOG_FILE
-cat $O | jq -r .Instances[0].InstanceId
 
-aws ec2 monitor-instances --region $AMI_REGION \
-    --instance-ids `cat $O | jq -r .Instances[0].InstanceId` \
-| jq -r "\"Monitoring state: \" + .InstanceMonitorings[].Monitoring.State"
-
-if [ ! -z "$NAME" ]
+if [ -z "$BID" ]
 then
-aws ec2 create-tags \
-    --resources `cat $O  | jq -r .Instances[0].InstanceId` \
-    --tags Key=Name,Value=$NAME --region $AMI_REGION 
+    cat $O | jq -r .Instances[0].InstanceId >> $LOG_FILE
+    cat $O | jq -r .Instances[0].InstanceId
+
+    aws ec2 monitor-instances --region $AMI_REGION \
+        --instance-ids `cat $O | jq -r .Instances[0].InstanceId` \
+    | jq -r "\"Monitoring state: \" + .InstanceMonitorings[].Monitoring.State"
+
+    if [ ! -z "$NAME" ]
+    then
+    aws ec2 create-tags \
+        --resources `cat $O  | jq -r .Instances[0].InstanceId` \
+        --tags Key=Name,Value=$NAME --region $AMI_REGION 
+    fi
 fi
 
 rm $O

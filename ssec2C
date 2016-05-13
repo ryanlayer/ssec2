@@ -166,15 +166,25 @@ then
             | jq ".Reservations[].Instances[] | select(.InstanceId == \"$INSTANCE\")" \
             | jq -r "\"ssh -o StrictHostKeyChecking=no -i $KEY_PATH/\" + .KeyName + \".pem $AMI_USER_NAME@\" + .PublicDnsName"`
     fi
-    $CMD
+    eval $CMD
     rm $O
 else 
     printf "%s\t%s\n" "$AMI_REGION" "$(date)"
-    printf "Running "
-    JR_Q=".Reservations[].Instances[] | select(.State.Name == \"running\") | .InstanceId "
-    printf "%s\n" "$(cat $O | jq -r "$JR_Q" | wc -l)"
+    printf "\nInstances\n"
 
-    printf "Pending "
-    JR_Q=".Reservations[].Instances[] | select(.State.Name == \"pending\") | .InstanceId "
-    printf "%s\n" "$(cat $O | jq -r "$JR_Q" | wc -l)"
+    #printf "Running "
+    #JR_Q=".Reservations[].Instances[] | select(.State.Name == \"running\") | .InstanceId "
+    #printf "%s\n" "$(cat $O | jq -r "$JR_Q" | wc -l)"
+
+    #printf "Pending "
+    #JR_Q=".Reservations[].Instances[] | select(.State.Name == \"pending\") | .InstanceId "
+    #printf "%s\n" "$(cat $O | jq -r "$JR_Q" | wc -l)"
+
+    JR_Q=".Reservations[].Instances[].State.Name"
+    cat $O | jq -r "$JR_Q" | sort | uniq -c 
+
+    printf "\nSpot Requests\n"
+    aws ec2 describe-spot-instance-requests --region $AMI_REGION > $O
+    JR_Q=".SpotInstanceRequests[].Status.Code"
+    cat $O | jq -r "$JR_Q" | sort | uniq -c 
 fi
