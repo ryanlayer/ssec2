@@ -95,7 +95,9 @@ aws ec2 describe-instances --region $AMI_REGION > $O
 if [ "$TERM_ALL" -eq "1" ]
 then
     INSTANCES=`cat $O | jq -r ".Reservations[].Instances[] | select(.State.Name == \"running\") | .InstanceId" | tr '\n' ' '`
-    CMD="aws ec2 terminate-instances --instance-ids $INSTANCES --region $AMI_REGION"
+    CMD="AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+        AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
+        aws ec2 terminate-instances --instance-ids $INSTANCES --region $AMI_REGION"
     $CMD 
 elif [ "$LIST" -eq "1" ]
 then
@@ -126,7 +128,9 @@ then
             if [ "${INSTANCE_STATE[2]}" == "running" ]
             then
                 INSTANCE="${INSTANCE_STATE[0]}"
-                CPU=`aws cloudwatch get-metric-statistics \
+                CPU=`AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+                    AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
+                    aws cloudwatch get-metric-statistics \
                     --namespace "AWS/EC2" \
                     --metric-name CPUUtilization \
                     --region $AMI_REGION \
@@ -187,6 +191,8 @@ else
     cat $O | jq -r "$JR_Q" | sort | uniq -c 
 
     printf "\nSpot Requests\n"
+    AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+    AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
     aws ec2 describe-spot-instance-requests --region $AMI_REGION > $O
     JR_Q=".SpotInstanceRequests[].Status.Code"
     cat $O | jq -r "$JR_Q" | sort | uniq -c 
