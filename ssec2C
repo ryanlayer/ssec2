@@ -88,6 +88,8 @@ do
 done
 
 O=ssec2C.$RANDOM.out
+AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
 aws ec2 describe-instances --region $AMI_REGION > $O
 
 if [ "$TERM_ALL" -eq "1" ]
@@ -141,16 +143,17 @@ then
     fi
 elif [ ! -z "$INSTANCE" ]
 then
-    CMD=""
+    CMD="AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \ "
     JR_Q=
     
     if [ "$TERM_I" -eq "1" ]
     then
-        CMD="aws ec2 terminate-instances --instance-ids $INSTANCE --region $AMI_REGION"
+        CMD+="aws ec2 terminate-instances --instance-ids $INSTANCE --region $AMI_REGION"
         JRQ=".TerminatingInstances[] | .InstanceId + \" \" + .PreviousState + \"->\" + .CurrentState"
     elif [ "$STOP_I" -eq "1" ]
     then
-        CMD="aws ec2 stop-instances --instance-ids $INSTANCE --region $AMI_REGION"
+        CMD+="aws ec2 stop-instances --instance-ids $INSTANCE --region $AMI_REGION"
     elif [ ! -z "$LOCAL_FILE" ]
     then
         CMD=`cat $O \

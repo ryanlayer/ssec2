@@ -97,9 +97,13 @@ then
     exit
 fi
 
+CMD="AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+    AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
+"
+
 if [ -z "$BID" ]
 then
-    CMD="aws ec2 run-instances \
+    CMD+="aws ec2 run-instances \
         --image-id $AMI \
         --key-name $KEY_NAME  \
         --instance-type $TYPE \
@@ -131,7 +135,7 @@ then
         --user-data file://$FILE_NAME"
     fi
 else
-    CMD="aws ec2 request-spot-instances \
+    CMD+="aws ec2 request-spot-instances \
         --spot-price $BID \
         --instance-count 1 \
         --region $AMI_REGION \
