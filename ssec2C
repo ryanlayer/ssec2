@@ -98,7 +98,7 @@ then
     CMD="AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
         AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
         aws ec2 terminate-instances --instance-ids $INSTANCES --region $AMI_REGION"
-    $CMD 
+    eval $CMD 
 elif [ "$LIST" -eq "1" ]
 then
     THEN=
@@ -148,7 +148,8 @@ then
 elif [ ! -z "$INSTANCE" ]
 then
     CMD="AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
-AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \ "
+AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
+"
     JR_Q=
     
     if [ "$TERM_I" -eq "1" ]
