@@ -209,3 +209,40 @@ $ cat find_primes_to_1000.i-2394b13.out 2 3 5 7 11 13 17 19 23 29 31 37 41 43
 773 787 797 809 811 821 823 827 829 839 853 857 859 863 877 881 883 887 907 911
 919 929 937 941 947 953 967 971 977 983 991 997
 ```
+
+## Use spot instances
+First get the historical pricing for the targer machine type in your region by passing `?` as the bid price.
+
+```
+$ ssec2 launch -t m3.2xlarge -b ?
+Region      Seconds Ago  Cost($/hr)
+us-east-1b  0            0.011600
+us-east-1b  25           0.011500
+us-east-1b  416          0.108200
+us-east-1b  492          0.059200
+
+us-east-1c  3            0.011600
+us-east-1c  8            0.060200
+us-east-1c  489          0.108200
+
+us-east-1d  0            0.108300
+us-east-1d  11           0.108200
+us-east-1d  40           0.059200
+us-east-1d  228          0.013000
+
+us-east-1e  0            0.108600
+us-east-1e  32           0.013000
+us-east-1e  180          0.108500
+us-east-1e  245          0.059200
+```
+
+Choose your price, and submit the same job again with the bid price.
+
+```
+$ ssec2 launch \
+    -t m3.medium \
+    -n find_primes_to_1000 \
+    -b 0.05 \
+    prime.sh \
+    1000
+```

@@ -27,6 +27,7 @@ OPTIONS can be:
     -u      User name (default $AMI_USER_NAME)
     -f      secure copy local file to instance
     -F      secure copy remote file freom instance
+    -c      run a remote command
     -t      Terminate instance
     -T      Terminate all instances
     -s      Stop instance
@@ -41,14 +42,18 @@ INSTANCE=
 LIST=0
 LOCAL_FILE=
 REMOTE_FILE=
+REMOTE_CMD=
 
 # Check options passed in.
-while getopts "h i:k:r:u:tsTlf:F:" OPTION
+while getopts "h i:k:r:u:tsTlf:F:c:" OPTION
 do
     case $OPTION in
         h)
             usage
             exit 1
+            ;;
+        c)
+            REMOTE_CMD=$OPTARG
             ;;
         i)
             INSTANCE=$OPTARG
@@ -109,8 +114,8 @@ then
         THEN=$(date -u --date "-$TIME minutes" "+%Y-%m-%dT%H:%M:%SU")
         NOW=$(date -u "+%Y-%m-%dT%H:%M:%SU")
     else
-        THEN=$(date -u -r $((`date -u +%s`-$TIME*60)) "+%Y-%m-%dT%H:%M:%SU")
-        NOW=$(date -u -r $(date -u +%s) "+%Y-%m-%dT%H:%M:%SU")
+        THEN=$(date -u -j -r $((`date -u +%s`-$TIME*60)) "+%Y-%m-%dT%H:%M:%SU")
+        NOW=$(date -u -j -r $(date -u +%s) "+%Y-%m-%dT%H:%M:%SU")
     fi
 
     if [ ! -z "$INSTANCE" ]
@@ -173,6 +178,13 @@ AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
         CMD=`cat $O \
             | jq ".Reservations[].Instances[] | select(.InstanceId == \"$INSTANCE\")" \
             | jq -r "\"ssh -o StrictHostKeyChecking=no -i $KEY_PATH/\" + .KeyName + \".pem $AMI_USER_NAME@\" + .PublicDnsName"`
+
+        echo $CMD
+
+        if [ ! -z "$REMOTE_CMD" ]
+        then
+            CMD+=" \"$REMOTE_CMD\""
+        fi
     fi
     eval $CMD
     rm $O
