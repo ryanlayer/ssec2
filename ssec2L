@@ -135,6 +135,57 @@ then
         --user-data file://$FILE_NAME"
     fi
 else
+
+    if [ "$BID" = "?" ]
+    then
+        THEN=
+        NOW=
+
+        if [ "`uname`" == "Linux" ]
+        then
+            THEN=$(date -u --date "-60 minutes" "+%Y-%m-%dT%H:%M:%S")
+            NOW=$(date -u "+%Y-%m-%dT%H:%M:%S")
+        else
+            THEN=$(date -u -jf "%s" $((`date -u +%s`-60))  "+%Y-%m-%dT%H:%M:%SZ")
+            NOW=$(date -u -jf "%s" $(date -u +%s) "+%Y-%m-%dT%H:%M:%SZ")
+        fi
+
+        CMD="aws ec2 \
+        describe-spot-price-history 
+        --region $AMI_REGION \
+        --instance-types $TYPE \
+        --start-time $THEN
+        --end-time $NOW  \
+        --no-paginate"
+        O=`eval $CMD`
+
+        R=`echo $O | jq -r '.SpotPriceHistory[] | .AvailabilityZone + "\t" + .Timestamp + "\t" + .SpotPrice'`
+
+        ZONE=`echo -e "$R" | cut -f1`
+        TIMES=`echo -e "$R" \
+            | cut -f2 \
+            | sed -e "s/\.[0-9]*Z$//" \
+            | xargs -I{} bash -c 'echo $(( ($(date -u "+%s") - $(date -u -jf "%Y-%m-%dT%H:%M:%S" "{}" "+%s"))/60 ))'`
+            
+        PRICE=`echo -e "$R" | cut -f3`
+
+        (echo -e "Region\tSeconds Ago\tCost($/hr)";
+        paste <(echo -e "$ZONE") <(echo -e "$TIMES") <(echo -e "$PRICE") \
+            | sort -k 1,1 -k 2,2n )\
+        | column -t -s $'\t' \
+        | awk 'BEGIN {region="";}
+                {
+                    if (($1 != region) && 
+                        (region != "") && 
+                        (region != "Region")) {
+                        print "";
+                    }
+                    region=$1;
+                    print $0;
+                }'
+        exit
+    fi
+
     CMD+="aws ec2 request-spot-instances \
         --spot-price $BID \
         --instance-count 1 \
