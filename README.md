@@ -87,6 +87,7 @@ AMI_USER_NAME=
 AMI_WORKING_DIR=
 SECURITY_GROUP=
 LOG_FILE=$HOME/.ssec2_history
+BATCH_LOG_GROUP_NAME=
 ```
 
 For example:
@@ -106,6 +107,7 @@ AMI_USER_NAME=ubuntu
 AMI_WORKING_DIR=/home/ubuntu
 SECURITY_GROUP=ssh_in_all_out
 LOG_FILE=$HOME/.ssec2_history
+BATCH_LOG_GROUP_NAME=/aws/batch/job
 ```
 # Examples
 
