@@ -1,0 +1,212 @@
+#!/bin/bash
+set -e
+
+ERR()
+{
+    rm -f $O
+}
+
+trap ERR EXIT
+
+TO_SOURCE_FILE=$HOME/.ssec2
+
+if [ ! -z "$SSEC2_PROFILE" ]; then
+    echo $SSEC2_PROFILE
+    TO_SOURCE_FILE=$HOME/.ssec2.$SSEC2_PROFILE
+fi
+
+if [ -f $TO_SOURCE_FILE ]; then
+    source $TO_SOURCE_FILE
+else
+    echo "$TO_SOURCE_FILE not found"
+    exit 1
+fi
+
+THIS_PATH="`dirname \"$0\"`"
+THIS_PATH="`( cd \"$THIS_PATH\" && pwd )`" 
+
+usage()
+{
+    cat << EOF
+
+usage: $0 OPTIONS
+
+OPTIONS can be:
+    -h      Show this message
+    -l      Get listing
+    -s      Status
+    -L      Get log
+    -t      Terminate job
+    -r      Terminate reason (default: Terminating job.)
+    -j      Job id
+    -q      Queue name
+    -n      Number
+EOF
+}
+
+
+LIST=
+QUEUE=
+STATUS=
+VERBOSE=
+NUMBER=
+GET_LOG=
+TERM_JOB=
+TERM_JOB_REASON="Terminating job."
+JOB_ID=
+
+while getopts "hlq:s:vn:Ltr:j:" OPTION
+do
+    case $OPTION in
+        h)
+            usage
+            exit 1
+            ;;
+        l)
+            LIST=1
+            ;;
+        q)
+            QUEUE=$OPTARG
+            ;;
+        s)
+            STATUS=$OPTARG
+            ;;
+        v)
+            VERBOSE=1
+            ;;
+        n)
+            NUMBER=$OPTARG
+            ;;
+        L)
+            GET_LOG=1
+            ;;
+        t)
+            TERM_JOB=1
+            ;;
+        r)
+            TERM_JOB_REASON=$OPTARG
+            ;;
+        j)
+            JOB_ID=$OPTARG
+            ;;
+        ?)
+            usage
+            exit
+            ;;
+    esac
+done
+
+
+O=ssec2C.$RANDOM.out
+
+if [ ! -z "$GET_LOG" ]; then
+    if [ -s "$JOB_ID" ]; then
+        >&2 echo "ERROR: Cannot get log. No job id given" 
+        exit 1
+    fi
+
+    JOB_DEF=`AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+    AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
+    aws batch describe-jobs --jobs $JOB_ID`
+
+
+    TASK_ARN=`echo $JOB_DEF \
+    | jq --raw-output ".jobs[] | select(.jobId == \""$JOB_ID"\") | .container.taskArn | split(\"/\") | .[1]"`
+
+    JOB_NAME=`echo $JOB_DEF \
+    | jq --raw-output ".jobs[] | select(.jobId == \""$JOB_ID"\") | .jobName"`
+
+    AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+    AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
+    aws logs get-log-events --log-group-name "$BATCH_LOG_GROUP_NAME" --log-stream-name $JOB_NAME/$JOB_ID/$TASK_ARN \
+    > $O
+
+    paste <( cat $O | jq --raw-output '.events | sort_by(.timestamp) | .[].timestamp') \
+          <( cat $O | jq --raw-output '.events | sort_by(.timestamp) | .[].message') \
+    | awk -F"\t" '{print strftime("%c", ( $1 + 500 ) / 1000 ), $2;}' 
+ 
+elif [ ! -z "$TERM_JOB" ]; then
+    if [ -s "$JOB_ID" ]; then
+        >&2 echo "ERROR: Cannot terminate job. No job id given" 
+        exit 1
+    fi
+
+    AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+    AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
+    aws batch terminate-job --job-id $JOB_ID --reason "$TERM_JOB_REASON"
+
+elif [ ! -z "$LIST" ]; then
+    if [ -z "$STATUS" ]; then 
+        STATUSS="SUBMITTED PENDING RUNNABLE STARTING RUNNING SUCCEEDED FAILED"
+    else
+        STATUSS=$STATUS
+    fi
+
+    JOB_QUEUES=""
+
+    if [ ! -z "$QUEUE" ]; then
+        JOB_QUEUES=$QUEUE
+    else
+        JOB_QUEUES=`AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+        AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
+        aws batch describe-job-queues  \
+        | jq --raw-output '.jobQueues[].jobQueueName'`
+    fi
+
+    for Q in $JOB_QUEUES; do
+        if [ -z "$VERBOSE" ]; then
+            echo -en "Queue\t"
+
+            if [ -z "$VERBOSE" ]; then
+                echo $STATUSS | tr ' ' '\t'
+            fi
+
+            echo -n "$Q"
+
+            for S in $STATUSS; do
+                NUM=`AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+                AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
+                aws batch list-jobs --job-queue $Q --job-status $S \
+                | jq --raw-output '.jobSummaryList | length'`
+                echo -en "\t$NUM"
+            done
+
+            echo
+
+        else
+            echo "$Q:$STATUSS"
+            JOB_IDS=""
+            for S in $STATUSS; do
+                JOB_IDS=`AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+                AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
+                aws batch list-jobs --job-queue $Q --job-status $S \
+                | jq --raw-output '.jobSummaryList[].jobId'`
+            done
+
+            if [ -z "$NUMBER" ];then
+                NUMBER=`echo -e "$JOB_IDS" | wc -l`
+            fi
+
+            LOOPS=1
+            STEP=$NUMBER
+            if [ "$NUMBER" -gt 100 ]; then
+                STEP=100
+                LOOPS=`expr $NUMBER / $STEP`
+            fi
+            FIRST=1
+            echo -e "Name\tID\tStarted At"
+            (for i in `seq 1 $LOOPS`; do
+                JOB_IDS_PAG=`echo -e "$JOB_IDS" | tail -n+$FIRST | head -n $STEP | paste -sd " " -`
+                AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
+                AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
+                aws batch describe-jobs --jobs `echo $JOB_IDS_PAG` \
+                | jq --raw-output '.jobs[] | [.jobName,.jobId,.startedAt|tostring] | join("\t")' 
+                FIRST=$(( FIRST + $STEP ))
+            done) \
+            | sort -k 3,3n \
+            | awk '{
+                OFS="\t";
+                print $1,$2,strftime("%c", ( $3 + 500 ) / 1000 );}'
+        fi
+    done
+fi
