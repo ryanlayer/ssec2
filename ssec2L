@@ -1,6 +1,19 @@
 #!/bin/bash
 
-source $HOME/.ssec2
+TO_SOURCE_FILE=$HOME/.ssec2
+
+if [ ! -z "$SSEC2_PROFILE" ]; then
+    echo $SSEC2_PROFILE
+    TO_SOURCE_FILE=$HOME/.ssec2.$SSEC2_PROFILE
+fi
+
+if [ -f $TO_SOURCE_FILE ]; then
+    source $TO_SOURCE_FILE
+else
+    echo "$TO_SOURCE_FILE not found"
+    exit 1
+fi
+
 
 THIS_PATH="`dirname \"$0\"`"
 THIS_PATH="`( cd \"$THIS_PATH\" && pwd )`" 
@@ -21,6 +34,7 @@ OPTIONS can be:
     -n      Run name (required when submitting a script)
     -o      Output JSON file
     -b      Bid price for a spot instance (e.g., 0.01)
+    -x      Extra options to pass
     -d      Dry run
 EOF
 }
@@ -37,9 +51,10 @@ DRYRUN=0
 NAME=
 FILE_NAME=
 BID=
+EXTRA=
 
 # Check options passed in.
-while getopts "h i:t:k:r:s:u:o:n:db:" OPTION
+while getopts "h i:t:k:r:s:u:o:n:db:x:" OPTION
 do
     case $OPTION in
         h)
@@ -73,6 +88,9 @@ do
         b)
             BID=$OPTARG
             ;;
+        x)
+            EXTRA=$OPTARG
+            ;;
         ?)
             usage
             exit
@@ -81,7 +99,6 @@ do
 done
 
 shift $(($OPTIND - 1))
-
 
 if [ -z "$KEY_NAME" ]
 then
@@ -104,6 +121,7 @@ CMD="AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
 if [ -z "$BID" ]
 then
     CMD+="aws ec2 run-instances \
+        $EXTRA \
         --image-id $AMI \
         --key-name $KEY_NAME  \
         --instance-type $TYPE \

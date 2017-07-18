@@ -5,9 +5,22 @@ ERR()
     rm -f $O
 }
 
-trap ERR EXIT
+TO_SOURCE_FILE=$HOME/.ssec2
 
-source $HOME/.ssec2
+if [ ! -z "$SSEC2_PROFILE" ]; then
+    echo $SSEC2_PROFILE
+    TO_SOURCE_FILE=$HOME/.ssec2.$SSEC2_PROFILE
+fi
+
+if [ -f $TO_SOURCE_FILE ]; then
+    source $TO_SOURCE_FILE
+else
+    echo "$TO_SOURCE_FILE not found"
+    exit 1
+fi
+
+
+trap ERR EXIT
 
 THIS_PATH="`dirname \"$0\"`"
 THIS_PATH="`( cd \"$THIS_PATH\" && pwd )`" 
@@ -91,6 +104,7 @@ do
             ;;
     esac
 done
+
 
 O=ssec2C.$RANDOM.out
 AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
