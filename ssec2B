@@ -121,9 +121,16 @@ if [ ! -z "$GET_LOG" ]; then
     aws logs get-log-events --log-group-name "$BATCH_LOG_GROUP_NAME" --log-stream-name $JOB_NAME/$JOB_ID/$TASK_ARN \
     > $O
 
-    paste <( cat $O | jq --raw-output '.events | sort_by(.timestamp) | .[].timestamp') \
-          <( cat $O | jq --raw-output '.events | sort_by(.timestamp) | .[].message') \
-    | awk -F"\t" '{print strftime("%c", ( $1 + 500 ) / 1000 ), $2;}' 
+    if [ -z "$NUMBER" ];then 
+        paste <( cat $O | jq --raw-output '.events | sort_by(.timestamp) | .[].timestamp') \
+              <( cat $O | jq --raw-output '.events | sort_by(.timestamp) | .[].message') \
+        | awk -F"\t" '{print strftime("%c", ( $1 + 500 ) / 1000 ), $2;}' 
+    else
+        paste <( cat $O | jq --raw-output '.events | sort_by(.timestamp) | .[].timestamp') \
+              <( cat $O | jq --raw-output '.events | sort_by(.timestamp) | .[].message') \
+        | tail -n $NUMBER \
+        | awk -F"\t" '{print strftime("%c", ( $1 + 500 ) / 1000 ), $2;}' 
+    fi
  
 elif [ ! -z "$TERM_JOB" ]; then
     if [ -s "$JOB_ID" ]; then
@@ -183,18 +190,17 @@ elif [ ! -z "$LIST" ]; then
                 | jq --raw-output '.jobSummaryList[].jobId'`
             done
 
-            if [ -z "$NUMBER" ];then
-                NUMBER=`echo -e "$JOB_IDS" | wc -l`
-            fi
+            LEN=`echo -e "$JOB_IDS" | wc -l`
 
             LOOPS=1
-            STEP=$NUMBER
-            if [ "$NUMBER" -gt 100 ]; then
+            STEP=$LEN
+            if [ "$LEN" -gt 100 ]; then
                 STEP=100
-                LOOPS=`expr $NUMBER / $STEP`
+                LOOPS=`expr $LEN / $STEP`
             fi
             FIRST=1
             echo -e "Name\tID\tStarted At"
+
             (for i in `seq 1 $LOOPS`; do
                 JOB_IDS_PAG=`echo -e "$JOB_IDS" | tail -n+$FIRST | head -n $STEP | paste -sd " " -`
                 AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
@@ -204,9 +210,19 @@ elif [ ! -z "$LIST" ]; then
                 FIRST=$(( FIRST + $STEP ))
             done) \
             | sort -k 3,3n \
-            | awk '{
-                OFS="\t";
-                print $1,$2,strftime("%c", ( $3 + 500 ) / 1000 );}'
+            > $O 
+
+            if [ -z "$NUMBER" ];then
+                cat $O \
+                | awk '{
+                    OFS="\t";
+                    print $1,$2,strftime("%c", ( $3 + 500 ) / 1000 );}' 
+            else
+                tail -n $NUMBER $O \
+                | awk '{
+                    OFS="\t";
+                    print $1,$2,strftime("%c", ( $3 + 500 ) / 1000 );}' 
+            fi
         fi
     done
 fi
