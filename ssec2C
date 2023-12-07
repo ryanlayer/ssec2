@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 ERR()
 {
@@ -105,7 +106,6 @@ do
     esac
 done
 
-
 O=ssec2C.$RANDOM.out
 AWS_ACCESS_KEY_ID=$DATA_STORE_KEY_ID \
 AWS_SECRET_ACCESS_KEY=$DATA_STORE_ACCESS_KEY \
@@ -125,11 +125,11 @@ then
     
     if [ "`uname`" == "Linux" ]
     then
-        THEN=$(date -u --date "-$TIME minutes" "+%Y-%m-%dT%H:%M:%SU")
-        NOW=$(date -u "+%Y-%m-%dT%H:%M:%SU")
+        THEN=$(date -u --date "-$TIME minutes" "+%Y-%m-%dT%H:%M:%SUTC")
+        NOW=$(date -u "+%Y-%m-%dT%H:%M:%SUTC")
     else
-        THEN=$(date -u -j -r $((`date -u +%s`-$TIME*60)) "+%Y-%m-%dT%H:%M:%SU")
-        NOW=$(date -u -j -r $(date -u +%s) "+%Y-%m-%dT%H:%M:%SU")
+        THEN=$(date -u -j -r $((`date -u +%s`-$TIME*60)) "+%Y-%m-%dT%H:%M:%SUTC")
+        NOW=$(date -u -j -r $(date -u +%s) "+%Y-%m-%dT%H:%M:%SUTC")
     fi
 
     if [ ! -z "$INSTANCE" ]
@@ -137,11 +137,11 @@ then
         cat $O | jq ".Reservations[].Instances[] |  select(.InstanceId == \"$INSTANCE\")"
     else
         JR_Q=".Reservations[].Instances[] | select(.State.Name != \"terminated\") | .InstanceId + \",\" + .LaunchTime + \",\" + .State.Name + \",\" + .PublicDnsName + \",\" + .InstanceType"
-        printf "%-11s %-25s %-15s %-10s %-10s\n" "ID" "Launch Time" "State" "Type" "CPU"
+        printf "%-15s %-15s %-15s %-15s %-10s\n" "ID" "Launch Time" "State" "Type" "CPU"
         for INSTANCE_STATE_STR in `cat $O | jq -r "$JR_Q"`
         do
             IFS=',' read -r -a INSTANCE_STATE <<< "$INSTANCE_STATE_STR"
-            printf "%-11s %-25s %-15s %-10s " "${INSTANCE_STATE[0]}" "${INSTANCE_STATE[1]}" "${INSTANCE_STATE[2]}" "${INSTANCE_STATE[4]}"
+            printf "%-15s %-15s %-15s %-10s " "${INSTANCE_STATE[0]}" "${INSTANCE_STATE[1]}" "${INSTANCE_STATE[2]}" "${INSTANCE_STATE[4]}"
 
             CPU="."
             if [ "${INSTANCE_STATE[2]}" == "running" ]
@@ -157,7 +157,7 @@ then
                     --start-time $THEN \
                     --end-time $NOW \
                     --statistics Average \
-                    --period 60  | jq '.Datapoints[].Average' \
+                    --period 60  | jq '.Datapoints[].Average' 2>/dev/null \
                     | awk '{x+=$0;y+=$0^2}END{if (NR>0) print x/NR}'`
             fi
 
